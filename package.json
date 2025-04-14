@@ -1,0 +1,23 @@
+{
+  "name": "wheel-hunt",
+  "version": "1.0.0",
+  "description": "A Facebook Marketplace car-hunting automation script",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/PrajilPradeep/wheel-hunt.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/PrajilPradeep/wheel-hunt/issues"
+  },
+  "homepage": "https://github.com/PrajilPradeep/wheel-hunt#readme",
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  }
+}
