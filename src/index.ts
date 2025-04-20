@@ -1,6 +1,7 @@
 import { chromium, BrowserContext } from 'playwright';
 import * as fs from 'fs';
 import * as csvWriter from 'csv-writer';
+import * as path from 'path';
 
 const COOKIE_PATH = './cookies.json';
 
@@ -34,7 +35,7 @@ async function searchMarketplace(context: BrowserContext, query: string, locatio
 
   await page.waitForSelector('a[href^="/marketplace/item/"]');
   // Extract links
-  let adLinks = await page.$$eval('a[href^="/marketplace/item/"]', anchors => {
+  const adLinks = await page.$$eval('a[href^="/marketplace/item/"]', anchors => {
       return anchors
           .filter((a): a is HTMLAnchorElement => a instanceof HTMLAnchorElement)
           .map(a => a.href);
@@ -94,15 +95,24 @@ async function searchMarketplace(context: BrowserContext, query: string, locatio
   return finalResult;
 }
 
-async function saveResultsToCSV(results:string[]) {
+async function saveResultsToCSV(results:string[], query:string) {
   if (results.length === 0) {
     console.log("No valid non-dealer cars found.");
     return;
   }
 
+  const outputDir = path.join(process.cwd(), 'exports');
+  if(!fs.existsSync(outputDir)){
+    fs.mkdirSync(outputDir)
+  }
+
   const createCsvWriter = csvWriter.createObjectCsvWriter;
+  const timestamp = new Date().toISOString().slice(0,10)
+  const safeQuery = query.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g,"")
+  const filePath = path.join(outputDir, `fb-results-${safeQuery}_${timestamp}.csv`);
+
   const writer = createCsvWriter({
-    path: './data/results.csv',
+    path: filePath,
     header: [
       { id: 'url', title: 'URL'}
     ]
@@ -111,7 +121,7 @@ async function saveResultsToCSV(results:string[]) {
   const formattedResults = results.map(url=> ({ url }));
 
   await writer.writeRecords(formattedResults);
-  console.log("Results saved to results.csv");
+  console.log("Results saved to",filePath);
 }
 
 async function main() {
@@ -128,7 +138,7 @@ async function main() {
   }
 
   const results = await searchMarketplace(context, query, location);
-  await saveResultsToCSV(results);
+  await saveResultsToCSV(results, query);
 
   await context.close()
   await browser.close();
