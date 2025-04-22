@@ -1,9 +1,26 @@
-import { chromium, BrowserContext } from 'playwright';
+import { chromium, BrowserContext, Page } from 'playwright';
 import * as fs from 'fs';
 import * as csvWriter from 'csv-writer';
 import * as path from 'path';
+import * as readline from 'readline'
 
 const COOKIE_PATH = './cookies.json';
+
+function askQuestion(query: string): Promise<string>{
+  const rl = readline.createInterface({
+    input:process.stdin,
+    output: process.stdout
+  });
+  return new Promise(resolve => rl.question(query, answer =>{
+    rl.close()
+    const trimmed = answer.trim();
+    if(!trimmed){
+      console.log("`❌ Invalid input. Exiting !!!`");
+      process.exit(1)
+    }
+    resolve(trimmed);
+  }));
+}
 
 async function saveCookies(context: BrowserContext) {
   const cookies = await context.cookies();
@@ -26,11 +43,37 @@ async function manualLogin(context: BrowserContext) {
   await page.close();
 }
 
+//Todo - Fix bug when the location is set already
+// async function setLocationAndSearch(page:Page, location:string, query:string) {
+//   // Set Location
+//   await page.goto('https://www.facebook.com/marketplace');
+//   await page.waitForLoadState('domcontentloaded');
+
+//   await page.waitForSelector('input[placeholder="Location"]');
+//   await page.click('input[placeholder="Location"]');
+//   await page.fill('input[placeholder="Location"]', location);
+//   await page.waitForSelector('ul[role="listbox"] li', { timeout: 5000 });
+//   await page.click('ul[role="listbox"] li:first-child');
+//   await page.waitForTimeout(2000);
+
+//   // Set Search Query
+//   await page.waitForSelector('input[placeholder="Search Marketplace"]');
+//   await page.fill('input[placeholder="Search Marketplace"]', query);
+//   await page.keyboard.press('Enter');
+//   await page.waitForNavigation({ waitUntil: 'domcontentloaded' });
+// }
+
+
 async function searchMarketplace(context: BrowserContext, query: string, location:string) {
   const page = await context.newPage();
 
-  // Navigate to Marketplace with location parameter
-  await page.goto(`https://www.facebook.com/marketplace/delhi/search?query=creta%201.4%20diesel`)
+  //Todo - implement the following function
+  // await setLocationAndSearch(page, location, query);
+  // await page.waitForTimeout(3000);
+
+  const searchQuery = encodeURIComponent(query);
+  const url = `https://www.facebook.com/marketplace/delhi/search?query=${searchQuery}`;
+  await page.goto(url, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(3000);
 
   await page.waitForSelector('a[href^="/marketplace/item/"]');
@@ -125,8 +168,8 @@ async function saveResultsToCSV(results:string[], query:string) {
 }
 
 async function main() {
-  const location = process.argv[2] || 'Calicut';
-  const query = process.argv[3] || 'Honda City';
+  const location = await askQuestion("📍 Enter location: ");
+  const query = await askQuestion("🚗 Enter car model: ");
 
   const browser = await chromium.launch({ headless: false, slowMo:500 });
   const context = await browser.newContext();
