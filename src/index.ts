@@ -171,7 +171,7 @@ async function main() {
   const location = await askQuestion("📍 Enter location: ");
   const query = await askQuestion("🚗 Enter car model: ");
 
-  const browser = await chromium.launch({ headless: false, slowMo:500 });
+  const browser = await chromium.launch({ headless: true});
   const context = await browser.newContext();
 
   if (!fs.existsSync(COOKIE_PATH)) {
