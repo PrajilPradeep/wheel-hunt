@@ -76,17 +76,29 @@ async function searchMarketplace(context: BrowserContext, query: string, locatio
   await page.goto(url, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(3000);
 
-  await page.waitForSelector('a[href^="/marketplace/item/"]');
-  // Extract links
-  const adLinks = await page.$$eval('a[href^="/marketplace/item/"]', anchors => {
+  const adLinks = new Set<string>();
+  let maxScrolls = 20; // Limit to prevent infinite loops
+
+  for (let i = 0; i < maxScrolls && adLinks.size < 100; i++) {
+    const newLinks = await page.$$eval('a[href^="/marketplace/item/"]', anchors => {
       return anchors
-          .filter((a): a is HTMLAnchorElement => a instanceof HTMLAnchorElement)
-          .map(a => a.href);
+        .filter((a): a is HTMLAnchorElement => a instanceof HTMLAnchorElement)
+        .map(a => a.href);
+    });
+
+  newLinks.forEach(link => adLinks.add(link));
+
+  // Scroll to the bottom of the page
+  await page.evaluate(() => {
+    window.scrollBy(0, window.innerHeight);
   });
+
+  await page.waitForTimeout(2000); // Wait for new content to load
+}
 
   const finalResult = [];
 
-  for (const adUrl of adLinks) {
+  for (const adUrl of Array.from(adLinks)) {
       try {
           await page.goto(adUrl, { waitUntil: 'domcontentloaded' });
 
