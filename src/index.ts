@@ -4,6 +4,13 @@ import * as csvWriter from 'csv-writer';
 import * as path from 'path';
 import * as readline from 'readline'
 
+interface CarListing {
+  url: string;
+  sellerName: string;
+  price: string;
+  title: string;
+}
+
 const COOKIE_PATH = './cookies.json';
 
 function askQuestion(query: string): Promise<string>{
@@ -73,11 +80,13 @@ async function searchMarketplace(context: BrowserContext, query: string, locatio
 
   const searchQuery = encodeURIComponent(query);
   const url = `https://www.facebook.com/marketplace/delhi/search?query=${searchQuery}`;
+
   await page.goto(url, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(3000);
 
   const adLinks = new Set<string>();
-  let maxScrolls = 20; // Limit to prevent infinite loops
+  let maxScrolls = 2
+  // 20;
 
   for (let i = 0; i < maxScrolls && adLinks.size < 100; i++) {
     const newLinks = await page.$$eval('a[href^="/marketplace/item/"]', anchors => {
@@ -96,7 +105,7 @@ async function searchMarketplace(context: BrowserContext, query: string, locatio
   await page.waitForTimeout(2000); // Wait for new content to load
 }
 
-  const finalResult = [];
+  const finalResult : CarListing[]= [];
 
   for (const adUrl of Array.from(adLinks)) {
       try {
@@ -112,7 +121,31 @@ async function searchMarketplace(context: BrowserContext, query: string, locatio
             }
             throw new Error("Element is not an anchor element");
           });
-          console.log(`Checking Seller Profile: ${sellerUrl}`);
+
+        const sellerName = await page.evaluate(() => {
+  // Find the link that contains the seller name
+        const sellerLinks = Array.from(document.querySelectorAll('a[href*="/marketplace/profile/"]'));
+        // Filter to find the one that doesn't contain "Seller details" text
+        const sellerLink = sellerLinks.find(link => {
+          return link.textContent &&
+                !link.textContent.includes('Seller details') &&
+                link.textContent.trim() !== '';
+              });
+          return sellerLink?.textContent ? sellerLink.textContent.trim() : "N/A";
+          });
+
+        const title = await page.$eval('h1 span', (el) => el.textContent?.trim() || "N/A");
+
+        const price = await page.evaluate(() => {
+          const spans = Array.from(document.querySelectorAll('span[dir="auto"]'));
+          const priceSpan = spans.find(span =>
+            span.textContent &&
+            span.textContent.trim().startsWith('₹')
+          );
+          return priceSpan && priceSpan.textContent ? priceSpan.textContent.trim() : "N/A";
+        });
+
+
 
           // Navigate to Seller's profile
           await page.goto(sellerUrl, { waitUntil: 'domcontentloaded' });
@@ -131,7 +164,14 @@ async function searchMarketplace(context: BrowserContext, query: string, locatio
           console.log(`Listings found: ${listingCount}`);
 
           if (listingCount <= 3) {
-              finalResult.push(adUrl);
+              finalResult.push(
+                {
+                url:adUrl,
+                sellerName: sellerName,
+                price: price,
+                title: title
+                }
+              );
               console.log(`✅ Valid non-dealer car found: ${adUrl}`);
           } else {
               console.log(`❌ Discarded Dealer: ${adUrl}`);
@@ -150,7 +190,7 @@ async function searchMarketplace(context: BrowserContext, query: string, locatio
   return finalResult;
 }
 
-async function saveResultsToCSV(results:string[], query:string) {
+async function saveResultsToCSV(results:CarListing[], query:string) {
   if (results.length === 0) {
     console.log("No valid non-dealer cars found.");
     return;
@@ -169,13 +209,14 @@ async function saveResultsToCSV(results:string[], query:string) {
   const writer = createCsvWriter({
     path: filePath,
     header: [
-      { id: 'url', title: 'URL'}
+      { id: 'url', title: 'Link' },
+      { id: 'sellerName', title: 'Seller\'s Name' },
+      { id: 'price', title: 'Price' },
+      { id: 'title', title: 'Title' },
     ]
   });
 
-  const formattedResults = results.map(url=> ({ url }));
-
-  await writer.writeRecords(formattedResults);
+  await writer.writeRecords(results);
   console.log("Results saved to",filePath);
 }
 
