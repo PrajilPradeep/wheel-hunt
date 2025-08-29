@@ -85,10 +85,9 @@ async function searchMarketplace(context: BrowserContext, query: string, locatio
   await page.waitForTimeout(3000);
 
   const adLinks = new Set<string>();
-  let maxScrolls = 2
-  // 20;
+  let maxScrolls = 50;
 
-  for (let i = 0; i < maxScrolls && adLinks.size < 100; i++) {
+  for (let i = 0; i < maxScrolls && adLinks.size < 700; i++) {
     const newLinks = await page.$$eval('a[href^="/marketplace/item/"]', anchors => {
       return anchors
         .filter((a): a is HTMLAnchorElement => a instanceof HTMLAnchorElement)
@@ -163,7 +162,7 @@ async function searchMarketplace(context: BrowserContext, query: string, locatio
           );
           console.log(`Listings found: ${listingCount}`);
 
-          if (listingCount <= 3) {
+          if (listingCount <= 2) {
               finalResult.push(
                 {
                 url:adUrl,
